@@ -10,6 +10,9 @@ import time
 from sys import argv, exit, platform
 import openai
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 quiet = False
 if len(argv) >= 2:
@@ -39,7 +42,8 @@ Interactive elements such as links, inputs, buttons are represented like this:
 
 		<link id=1>text</link>
 		<button id=2>text</button>
-		<input id=3>text</input>
+  		<input id=3>text</input>
+		<textarea id=4>text</input>
 
 Images are rendered as their alt text like this:
 
@@ -71,7 +75,7 @@ CURRENT BROWSER CONTENT:
 <link id=5>(Google apps)</link>
 <link id=6>Sign in</link>
 <img id=7 alt="(Google)"/>
-<input id=8 alt="Search"></input>
+<textarea id=8 aria-label="Search"></input>
 <button id=9>(Search by voice)</button>
 <button id=10>(Google Search)</button>
 <button id=11>(I'm Feeling Lucky)</button>
@@ -100,7 +104,7 @@ CURRENT BROWSER CONTENT:
 <link id=5>(Google apps)</link>
 <link id=6>Sign in</link>
 <img id=7 alt="(Google)"/>
-<input id=8 alt="Search"></input>
+<textarea id=8 alt="Search"></input>
 <button id=9>(Search by voice)</button>
 <button id=10>(Google Search)</button>
 <button id=11>(I'm Feeling Lucky)</button>
@@ -297,6 +301,8 @@ class Crawler:
 				return "input"
 			if node_name == "img":
 				return "img"
+			if node_name == "textarea":
+				return "textarea"
 			if (
 				node_name == "button" or has_click_handler
 			):  # found pages that needed this quirk
@@ -556,9 +562,11 @@ if (
 		prompt = prompt.replace("$objective", objective)
 		prompt = prompt.replace("$url", url[:100])
 		prompt = prompt.replace("$previous_command", previous_command)
-		prompt = prompt.replace("$browser_content", browser_content[:4500])
-		response = openai.Completion.create(model="text-davinci-002", prompt=prompt, temperature=0.5, best_of=10, n=3, max_tokens=50)
-		return response.choices[0].text
+		prompt = prompt.replace("$browser_content", browser_content[:10000])
+		response = openai.ChatCompletion.create(model="gpt-3.5-turbo-0613", 
+                                          messages=[{"role": "user", "content": prompt}],
+                                           temperature=0.3, max_tokens=50)
+		return response.choices[0].message.content
 
 	def run_cmd(cmd):
 		cmd = cmd.split("\n")[0]
@@ -599,6 +607,7 @@ if (
 			browser_content = "\n".join(_crawler.crawl())
 			prev_cmd = gpt_cmd
 			gpt_cmd = get_gpt_command(objective, _crawler.page.url, prev_cmd, browser_content)
+   			
 			gpt_cmd = gpt_cmd.strip()
 
 			if not quiet:
